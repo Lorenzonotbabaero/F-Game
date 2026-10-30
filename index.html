@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Flappy Bird Clone</title>
+<style>
+  body {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: #70c5ce;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+  }
+  canvas {
+    background: #70c5ce;
+    border: 2px solid #000;
+  }
+  #score {
+    position: absolute;
+    top: 20px;
+    width: 100%;
+    text-align: center;
+    font-size: 32px;
+    color: white;
+    text-shadow: 2px 2px 4px #000;
+    pointer-events: none;
+  }
+  #message {
+    position: absolute;
+    top: 40%;
+    width: 100%;
+    text-align: center;
+    font-size: 24px;
+    color: white;
+    text-shadow: 2px 2px 4px #000;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="score">0</div>
+<div id="message">Click or press Space to start</div>
+<canvas id="game" width="400" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const scoreEl = document.getElementById('score');
+const messageEl = document.getElementById('message');
+
+// Game state
+let bird, pipes, frame, score, gameState;
+// gameState: "ready", "playing", "over"
+
+const GRAVITY = 0.5;
+const FLAP = -8;
+const PIPE_WIDTH = 60;
+const PIPE_GAP = 150;
+const PIPE_SPEED = 2.5;
+
+function resetGame() {
+  bird = {
+    x: 80,
+    y: canvas.height / 2,
+    velocity: 0,
+    radius: 15
+  };
+  pipes = [];
+  frame = 0;
+  score = 0;
+  gameState = "ready";
+  scoreEl.textContent = score;
+  messageEl.style.display = "block";
+  messageEl.textContent = "Click or press Space to start";
+}
+
+function flap() {
+  if (gameState === "ready") {
+    gameState = "playing";
+    messageEl.style.display = "none";
+  }
+  if (gameState === "playing") {
+    bird.velocity = FLAP;
+  }
+  if (gameState === "over") {
+    resetGame();
+  }
+}
+
+function spawnPipe() {
+  const minTop = 50;
+  const maxTop = canvas.height - PIPE_GAP - 50;
+  const topHeight = Math.floor(Math.random() * (maxTop - minTop + 1)) + minTop;
+  pipes.push({
+    x: canvas.width,
+    top: topHeight,
+    bottom: topHeight + PIPE_GAP,
+    passed: false
+  });
+}
+
+function update() {
+  if (gameState !== "playing") return;
+
+  frame++;
+
+  // Bird physics
+  bird.velocity += GRAVITY;
+  bird.y += bird.velocity;
+
+  // Spawn pipes every ~90 frames
+  if (frame % 90 === 0) {
+    spawnPipe();
+  }
+
+  // Move pipes
+  pipes.forEach(pipe => {
+    pipe.x -= PIPE_SPEED;
+
+    // Score when bird passes pipe
+    if (!pipe.passed && pipe.x + PIPE_WIDTH < bird.x) {
+      pipe.passed = true;
+      score++;
+      scoreEl.textContent = score;
+    }
+  });
+
+  // Remove off-screen pipes
+  pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
+
+  // Collision: ground or ceiling
+  if (bird.y + bird.radius > canvas.height || bird.y - bird.radius < 0) {
+    endGame();
+  }
+
+  // Collision: pipes
+  pipes.forEach(pipe => {
+    if (
+      bird.x + bird.radius > pipe.x &&
+      bird.x - bird.radius < pipe.x + PIPE_WIDTH
+    ) {
+      if (
+        bird.y - bird.radius < pipe.top ||
+        bird.y + bird.radius > pipe.bottom
+      ) {
+        endGame();
+      }
+    }
+  });
+}
+
+function endGame() {
+  gameState = "over";
+  messageEl.style.display = "block";
+  messageEl.textContent = `Game Over! Score: ${score} — Click to retry`;
+}
+
+function draw() {
+  // Clear
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw pipes
+  ctx.fillStyle = "#228B22";
+  pipes.forEach(pipe => {
+    ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.top);
+    ctx.fillRect(pipe.x, pipe.bottom, PIPE_WIDTH, canvas.height - pipe.bottom);
+  });
+
+  // Draw bird
+  ctx.fillStyle = "#FFD700";
+  ctx.beginPath();
+  ctx.arc(bird.x, bird.y, bird.radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#000";
+  ctx.stroke();
+
+  // Draw ground line
+  ctx.strokeStyle = "#333";
+  ctx.beginPath();
+  ctx.moveTo(0, canvas.height - 1);
+  ctx.lineTo(canvas.width, canvas.height - 1);
+  ctx.stroke();
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// Input handling
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    flap();
+  }
+});
+canvas.addEventListener('click', flap);
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  flap();
+});
+
+resetGame();
+loop();
+</script>
+
+</body>
+</html>
